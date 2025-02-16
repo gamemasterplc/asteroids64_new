@@ -36,7 +36,7 @@ static player_t player;
 static sprite_t *spr_rock[3];
 static sprite_t *spr_bullet;
 static sprite_t *spr_ship;
-static wav64_t *sfx_explode;
+static wav64_t *sfx_explode[3];
 static wav64_t *sfx_fire;
 
 static void wrap_pos(float *x, float *y, float border_w, float border_h)
@@ -162,14 +162,13 @@ static void bullet_update(float dt)
                 rock_t *rock = &rock_all[j];
                 if(rock->active) {
                     if(check_circle_col(bullet->x, bullet->y, 0, rock->x, rock->y, rock_radius[rock->size])) {
+                        wav64_play(sfx_explode[rock->size], 1);
                         if(rock->size != 2) {
                             int new_size = rock->size+1;
                             float speed_x = 75*sinf(bullet->angle);
                             float speed_y = 75*cosf(bullet->angle);
                             rock_create(rock->x, rock->y, speed_y, -speed_x, new_size);
                             rock_create(rock->x, rock->y, -speed_y, speed_x, new_size);
-                        } else {
-                            wav64_play(sfx_explode, 1);
                         }
                         rock->active = false;
                         bullet_delete(bullet);
@@ -194,7 +193,9 @@ static void init(void)
     spr_rock[2] = sprite_load("rom:/rock_small.sprite");
     spr_ship = sprite_load("rom:/ship.sprite");
     spr_bullet = sprite_load("rom:/bullet.sprite");
-    sfx_explode = wav64_load("rom:/explode.wav64", NULL);
+    sfx_explode[0] = wav64_load("rom:/explode_big.wav64", NULL);
+    sfx_explode[1] = wav64_load("rom:/explode_mid.wav64", NULL);
+    sfx_explode[2] = wav64_load("rom:/explode_small.wav64", NULL);
     sfx_fire = wav64_load("rom:/fire.wav64", NULL);
     
     rock_init();
