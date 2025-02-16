@@ -14,7 +14,8 @@ int main()
     
     //Init audio
     audio_init(48000, 4);
-	mixer_init(16);
+	mixer_init(32);
+    mixer_set_vol(0.7f);
     
     //Init various other functions
     display_init(RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE);
