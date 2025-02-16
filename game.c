@@ -9,6 +9,8 @@ typedef struct player_s {
     float y;
     float angle;
     float speed;
+    float damage_timer;
+    float reset_timer;
 } player_t;
 
 typedef struct rock_s {
@@ -29,7 +31,7 @@ typedef struct bullet_s {
     float speed;
 } bullet_t;
 
-static int rock_radius[3] = { 32, 16, 8 };
+static int rock_radius[3] = { 24, 12, 6 };
 static rock_t rock_all[ROCK_MAX];
 static bullet_t bullet_all[BULLET_MAX];
 static player_t player;
@@ -38,6 +40,8 @@ static sprite_t *spr_bullet;
 static sprite_t *spr_ship;
 static wav64_t *sfx_explode[3];
 static wav64_t *sfx_fire;
+static float game_time;
+static bool game_pause;
 
 static void wrap_pos(float *x, float *y, float border_w, float border_h)
 {
@@ -146,8 +150,8 @@ static void bullet_spawn(void)
     if(!bullet) {
         return;
     }
-    bullet->x = player.x-(8*sinf(player.angle));
-    bullet->y = player.y-(8*cosf(player.angle));
+    bullet->x = player.x-(6*sinf(player.angle));
+    bullet->y = player.y-(6*cosf(player.angle));
     bullet->angle = player.angle;
     bullet->speed = 300;
 }
@@ -185,63 +189,25 @@ static void bullet_update(float dt)
     }
 }
 
-
-static void init(void)
+static void player_reset(void)
 {
-    spr_rock[0] = sprite_load("rom:/rock_big.sprite");
-    spr_rock[1] = sprite_load("rom:/rock_mid.sprite");
-    spr_rock[2] = sprite_load("rom:/rock_small.sprite");
-    spr_ship = sprite_load("rom:/ship.sprite");
-    spr_bullet = sprite_load("rom:/bullet.sprite");
-    sfx_explode[0] = wav64_load("rom:/explode_big.wav64", NULL);
-    sfx_explode[1] = wav64_load("rom:/explode_mid.wav64", NULL);
-    sfx_explode[2] = wav64_load("rom:/explode_small.wav64", NULL);
-    sfx_fire = wav64_load("rom:/fire.wav64", NULL);
-    
-    rock_init();
-    bullet_init();
-    
     player.x = display_get_width()/2;
     player.y = display_get_height()/2;
     player.angle = 0;
     player.speed = 0;
-    rock_start_create();
-}
-
-static void draw(void)
-{
-    rdpq_set_mode_standard();
-    rdpq_mode_alphacompare(1); // colorkey (draw pixel with alpha >= 1)
-    
-    for(int i=0; i<BULLET_MAX; i++) {
-        bullet_t *bullet = &bullet_all[i];
-        if(bullet->active) {
-            rdpq_sprite_blit(spr_bullet, bullet->x, bullet->y, &(rdpq_blitparms_t){
-                .cx = 4,
-                .cy = 8,
-                .theta = bullet->angle,
-            });
-        }
-    }
-    rdpq_sprite_blit(spr_ship, player.x, player.y, &(rdpq_blitparms_t){
-        .cx = 11,
-        .cy = 32,
-        .theta = player.angle
-    });
-    for(int i=0; i<ROCK_MAX; i++) {
-        rock_t *rock = &rock_all[i];
-        if(rock->active) {
-            rdpq_sprite_blit(spr_rock[rock->size], rock->x, rock->y, &(rdpq_blitparms_t){
-                .cx = rock_radius[rock->size],
-                .cy = rock_radius[rock->size],
-                .theta = rock->angle
-            });
-        }
-    }
+    player.damage_timer = 1.0f;
+    player.reset_timer = 0;
 }
 
 static void player_update(float dt)
 {
+    if(player.reset_timer > 0) {
+        player.reset_timer -= dt;
+        if(player.reset_timer <= 0) {
+            player_reset();
+        }
+        return;
+    }
     joypad_buttons_t btn = joypad_get_buttons_held(JOYPAD_PORT_1);
     joypad_buttons_t btn_press = joypad_get_buttons_pressed(JOYPAD_PORT_1);
     joypad_inputs_t stick = joypad_get_inputs(JOYPAD_PORT_1);
@@ -270,17 +236,108 @@ static void player_update(float dt)
         wav64_play(sfx_fire, 0);
         bullet_spawn();
     }
+    bool in_rock = false;
+    for(int i=0; i<ROCK_MAX; i++) {
+        rock_t *rock = &rock_all[i];
+        if(rock->active) {
+            if(check_circle_col(player.x, player.y, 8, rock->x, rock->y, rock_radius[rock->size])) {
+                if(player.damage_timer <= 0) {
+                    player.reset_timer = 0.5f;
+                    wav64_play(sfx_explode[1], 1);
+                } else {
+                    in_rock = true;
+                }
+            }
+        }
+    }
+    
+    if(player.damage_timer > 0 && !in_rock) {
+        player.damage_timer -= dt;
+        if(player.damage_timer <= 0) {
+            player.damage_timer = 0;
+        }
+    }
     player.x -= sinf(player.angle)*player.speed*dt;
     player.y -= cosf(player.angle)*player.speed*dt;
-    wrap_pos(&player.x, &player.y, 26, 26);
+    wrap_pos(&player.x, &player.y, 20, 20);
 }
+
+static void init(void)
+{
+    spr_rock[0] = sprite_load("rom:/rock_big.sprite");
+    spr_rock[1] = sprite_load("rom:/rock_mid.sprite");
+    spr_rock[2] = sprite_load("rom:/rock_small.sprite");
+    spr_ship = sprite_load("rom:/ship.sprite");
+    spr_bullet = sprite_load("rom:/bullet.sprite");
+    sfx_explode[0] = wav64_load("rom:/explode_big.wav64", NULL);
+    sfx_explode[1] = wav64_load("rom:/explode_mid.wav64", NULL);
+    sfx_explode[2] = wav64_load("rom:/explode_small.wav64", NULL);
+    sfx_fire = wav64_load("rom:/fire.wav64", NULL);
+    game_time = 0;
+    game_pause = false;
+    
+    rock_init();
+    bullet_init();
+    
+    player_reset();
+    player.damage_timer = 0;
+    
+    rock_start_create();
+}
+
+static void draw(void)
+{
+    rdpq_set_mode_standard();
+    rdpq_mode_alphacompare(1); // colorkey (draw pixel with alpha >= 1)
+    
+    for(int i=0; i<BULLET_MAX; i++) {
+        bullet_t *bullet = &bullet_all[i];
+        if(bullet->active) {
+            rdpq_sprite_blit(spr_bullet, bullet->x, bullet->y, &(rdpq_blitparms_t){
+                .cx = 3,
+                .cy = 6,
+                .theta = bullet->angle,
+            });
+        }
+    }
+    if(player.reset_timer <= 0) {
+        if(player.damage_timer < 0.1f || fmodf(game_time, 0.1f) > 0.05f) {
+            rdpq_sprite_blit(spr_ship, player.x, player.y, &(rdpq_blitparms_t){
+                .cx = 8,
+                .cy = 15,
+                .theta = player.angle
+            });
+        }
+    }
+    
+    
+    for(int i=0; i<ROCK_MAX; i++) {
+        rock_t *rock = &rock_all[i];
+        if(rock->active) {
+            rdpq_sprite_blit(spr_rock[rock->size], rock->x, rock->y, &(rdpq_blitparms_t){
+                .cx = rock_radius[rock->size],
+                .cy = rock_radius[rock->size],
+                .theta = rock->angle
+            });
+        }
+    }
+}
+
 
 
 static void update(float dt)
 {
-    player_update(dt);
-    rock_update(dt);
-    bullet_update(dt);
+    joypad_buttons_t btn_press = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+    if(btn_press.start) {
+        game_pause = !game_pause;
+    }
+    if(!game_pause) {
+        game_time += dt;
+        player_update(dt);
+        rock_update(dt);
+        bullet_update(dt);
+    }
+    
 }
 
 static void cleanup(void)
