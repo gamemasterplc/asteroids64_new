@@ -123,14 +123,23 @@ static void explode_draw(void)
         explode_t *explode = &explode_all[i];
         if(explode->active) {
             float t = explode->time/explode->max_time;
-            float alpha = (t < 0.3f) ? 255 : (((1-t)/0.7f)*255);
+            float alpha, radius, base_angle;
+            if(t < 0.3f) {
+                alpha = 255;
+                radius = (explode->radius*t)/0.3f;
+                base_angle = t*M_PI/3;
+            } else {
+                alpha = 255-(((t-0.3f)/0.7f)*255);
+                radius = explode->radius;
+                base_angle = t*M_PI/3;
+            }
             rdpq_set_prim_color(RGBA32(255, 255, 255, alpha));
             for(int j=0; j<8; j++) {
-                float radius = explode->radius*t;
-                float x = explode->x+(radius*cosf(((j+0.5f)*M_PI*2)/8));
-                float y = explode->y+(radius*sinf(((j+0.5f)*M_PI*2)/8));
+                float angle = ((j*M_PI*2)/8)+base_angle;
+                float x = explode->x+(radius*cosf(angle));
+                float y = explode->y+(radius*sinf(angle));
                 
-                rdpq_fill_rectangle(x-2, y-2, x+2, y+2);
+                rdpq_fill_rectangle(x-1, y-1, x+1, y+1);
             }
         }
     }
@@ -239,7 +248,7 @@ static void bullet_update(float dt)
                 if(rock->active) {
                     if(check_circle_col(bullet->x, bullet->y, 0, rock->x, rock->y, rock_radius[rock->size])) {
                         wav64_play(sfx_explode[rock->size], 1);
-                        explode_create(rock->x, rock->y, rock_radius[rock->size]*2, 0.7f);
+                        explode_create(rock->x, rock->y, rock_radius[rock->size]*1.2f, 1.0f);
                         if(rock->size != 2) {
                             int new_size = rock->size+1;
                             float speed_x = 75*sinf(bullet->angle);
@@ -331,9 +340,9 @@ static void player_update(float dt)
         if(rock->active) {
             if(check_circle_col(player.x, player.y, 8, rock->x, rock->y, rock_radius[rock->size])) {
                 if(player.damage_timer <= 0) {
-                    player.reset_timer = 0.5f;
+                    player.reset_timer = 0.7f;
                     wav64_play(sfx_explode[1], 1);
-                    explode_create(player.x, player.y, 24, 0.5f);
+                    explode_create(player.x, player.y, 18, 0.7f);
                 } else {
                     in_rock = true;
                 }
