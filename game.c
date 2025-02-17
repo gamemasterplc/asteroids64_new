@@ -429,11 +429,13 @@ static void draw(void)
         player_draw();
         rock_draw();
         explode_draw();
-        rdpq_text_printf(NULL, FONT_MAIN, 16, 22, "%d", game_score);
-        rdpq_text_printf(NULL, FONT_MAIN, 16, 32, "Lives %d", game_lives);
+        
         
         if(game_pause) {
             rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=screen_h, .align=ALIGN_CENTER, .valign=VALIGN_CENTER}, FONT_MAIN, 0, 0, "Pause");
+        } else {
+            rdpq_text_printf(NULL, FONT_MAIN, 16, 22, "%d", game_score);
+            rdpq_text_printf(NULL, FONT_MAIN, 16, 32, "Lives %d", game_lives);
         }
     }
     
