@@ -25,6 +25,12 @@ int main()
     rdpq_init();
     rdpq_debug_start();
     
+    // Initialize the random number generator, then call rand() every
+    // frame so to get random behavior also in emulators.
+
+    srand(getentropy32());
+    register_VI_handler((void(*)(void))rand);
+    
     scene_set_next(SCENE_title);
     while (1)
     {

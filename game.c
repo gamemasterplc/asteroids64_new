@@ -41,6 +41,7 @@ typedef struct explode_s {
     float time;
     float max_time;
     float radius;
+    int color;
 } explode_t;
 
 static int rock_radius[3] = { 24, 12, 6 };
@@ -60,6 +61,12 @@ static int game_lives;
 static int game_score;
 static bool game_over;
 static rdpq_font_t *game_font;
+
+static float rand_range(float min, float max)
+{
+    float norm_val = (double)rand()/(double)RAND_MAX;
+    return (norm_val*(max-min))+min;
+}
 
 static void wrap_pos(float *x, float *y, float border_w, float border_h)
 {
@@ -102,6 +109,7 @@ static void explode_create(float x, float y, float radius, float max_time)
             explode->radius = radius;
             explode->time = 0;
             explode->max_time = max_time;
+            explode->color = rand()%4;
             return;
         }
     }
@@ -122,25 +130,32 @@ static void explode_update(float dt)
 
 static void explode_draw(void)
 {
+    color_t explode_color[4] = {
+        RGBA32(255, 0, 0, 255),
+        RGBA32(0, 255, 0, 255),
+        RGBA32(0, 255, 255, 255),
+        RGBA32(255, 255, 255, 255)
+    };
     rdpq_set_mode_standard();
     rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
     rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
     
     for(int i=0; i<EXPLODE_MAX; i++) {
         explode_t *explode = &explode_all[i];
+        color_t color = explode_color[explode->color];
         if(explode->active) {
             float t = explode->time/explode->max_time;
-            float alpha, radius, base_angle;
+            float radius, base_angle;
             if(t < 0.3f) {
-                alpha = 255;
+                color.a = 255;
                 radius = (explode->radius*t)/0.3f;
                 base_angle = t*M_PI/3;
             } else {
-                alpha = 255-(((t-0.3f)/0.7f)*255);
+                color.a = 255-(((t-0.3f)/0.7f)*255);
                 radius = explode->radius;
                 base_angle = t*M_PI/3;
             }
-            rdpq_set_prim_color(RGBA32(255, 255, 255, alpha));
+            rdpq_set_prim_color(color);
             for(int j=0; j<8; j++) {
                 float angle = ((j*M_PI*2)/8)+base_angle;
                 float x = explode->x+(radius*cosf(angle));
@@ -178,14 +193,12 @@ static void rock_create(float x, float y, float vel_x, float vel_y, int size)
 
 static void rock_start_create(void)
 {
-    for(int i=0; i<3; i++) {
-        float angle = (i*2*M_PI)/3;
-        float x = player.x+(120*cosf(angle));
-        float y = player.y+(120*sinf(angle));
-        float vel_x = 75*cosf(angle+(M_PI/5));
-        float vel_y = 75*sinf(angle+(M_PI/5));
-        rock_create(x, y, vel_x, vel_y, 0);
-    }
+    int screen_w = display_get_width();
+    int screen_h = display_get_height();
+    rock_create(32, (screen_h/2)+20, 60, 48, 0);
+    rock_create((screen_w/2)-32, 32, -60, 48, 0);
+    rock_create((screen_w/2)+32, 32, 60, 48, 0);
+    rock_create(screen_w-32, (screen_h/2)+20, 60, -48, 0);
 }
 
 static void rock_update(float dt)
@@ -256,13 +269,14 @@ static void bullet_update(float dt)
                     if(check_circle_col(bullet->x, bullet->y, 0, rock->x, rock->y, rock_radius[rock->size])) {
                         wav64_play(sfx_explode[rock->size], 1);
                         game_score += rock_score[rock->size];
-                        explode_create(rock->x, rock->y, rock_radius[rock->size]*1.2f, 1.0f);
+                        explode_create(rock->x, rock->y, rock_radius[rock->size]*rand_range(1.0f, 1.4f), 1.0f);
                         if(rock->size != 2) {
                             int new_size = rock->size+1;
-                            float speed_x = 75*sinf(bullet->angle);
-                            float speed_y = 75*cosf(bullet->angle);
-                            rock_create(rock->x, rock->y, speed_y, -speed_x, new_size);
-                            rock_create(rock->x, rock->y, -speed_y, speed_x, new_size);
+                            float angle1, angle2;
+                            angle1 = rand_range(0, 2*M_PI);
+                            angle2 = rand_range(0, 2*M_PI);
+                            rock_create(rock->x, rock->y, 75*cosf(angle1), 75*sinf(angle1), new_size);
+                            rock_create(rock->x, rock->y, 75*cosf(angle2), 75*sinf(angle2), new_size);
                         }
                         rock->active = false;
                         bullet->active = false;
