@@ -5,6 +5,8 @@
 #define BULLET_MAX 25
 #define EXPLODE_MAX ROCK_MAX+1
 
+#define FONT_MAIN 1
+
 typedef struct player_s {
     float x;
     float y;
@@ -42,6 +44,7 @@ typedef struct explode_s {
 } explode_t;
 
 static int rock_radius[3] = { 24, 12, 6 };
+static int rock_score[3] = { 20, 50, 100 };
 static rock_t rock_all[ROCK_MAX];
 static bullet_t bullet_all[BULLET_MAX];
 static player_t player;
@@ -53,6 +56,10 @@ static wav64_t *sfx_explode[3];
 static wav64_t *sfx_fire;
 static float game_time;
 static bool game_pause;
+static int game_lives;
+static int game_score;
+static bool game_over;
+static rdpq_font_t *game_font;
 
 static void wrap_pos(float *x, float *y, float border_w, float border_h)
 {
@@ -248,6 +255,7 @@ static void bullet_update(float dt)
                 if(rock->active) {
                     if(check_circle_col(bullet->x, bullet->y, 0, rock->x, rock->y, rock_radius[rock->size])) {
                         wav64_play(sfx_explode[rock->size], 1);
+                        game_score += rock_score[rock->size];
                         explode_create(rock->x, rock->y, rock_radius[rock->size]*1.2f, 1.0f);
                         if(rock->size != 2) {
                             int new_size = rock->size+1;
@@ -303,6 +311,10 @@ static void player_update(float dt)
         player.reset_timer -= dt;
         if(player.reset_timer <= 0) {
             player_reset();
+            if(--game_lives == 0) {
+                game_over = true;
+                game_pause = false;
+            }
         }
         return;
     }
@@ -376,6 +388,9 @@ static void player_draw(void)
 
 static void init(void)
 {
+    game_font = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
+    rdpq_text_register_font(FONT_MAIN, game_font);
+
     spr_rock[0] = sprite_load("rom:/rock_big.sprite");
     spr_rock[1] = sprite_load("rom:/rock_mid.sprite");
     spr_rock[2] = sprite_load("rom:/rock_small.sprite");
@@ -396,29 +411,54 @@ static void init(void)
     player.damage_timer = 0;
     
     rock_start_create();
+    game_lives = 3;
+    game_score = 0;
 }
 
 static void draw(void)
 {
-    bullet_draw();
-    player_draw();
-    rock_draw();
-    explode_draw();
+    int screen_w = display_get_width();
+    int screen_h = display_get_height();
+    if(game_over) {
+        bullet_draw();
+        rock_draw();
+        explode_draw();
+        rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=screen_h, .align=ALIGN_CENTER, .valign=VALIGN_CENTER}, FONT_MAIN, 0, 0, "Game Over");
+    } else {
+        bullet_draw();
+        player_draw();
+        rock_draw();
+        explode_draw();
+        rdpq_text_printf(NULL, FONT_MAIN, 16, 22, "%d", game_score);
+        rdpq_text_printf(NULL, FONT_MAIN, 16, 32, "Lives %d", game_lives);
+        
+        if(game_pause) {
+            rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=screen_h, .align=ALIGN_CENTER, .valign=VALIGN_CENTER}, FONT_MAIN, 0, 0, "Pause");
+        }
+    }
+    
 }
 
 static void update(float dt)
 {
     joypad_buttons_t btn_press = joypad_get_buttons_pressed(JOYPAD_PORT_1);
-    if(btn_press.start) {
-        game_pause = !game_pause;
-    }
-    if(!game_pause) {
-        game_time += dt;
-        player_update(dt);
+    if(game_over) {
         rock_update(dt);
         bullet_update(dt);
         explode_update(dt);
+    } else {
+        if(btn_press.start) {
+            game_pause = !game_pause;
+        }
+        if(!game_pause) {
+            game_time += dt;
+            player_update(dt);
+            rock_update(dt);
+            bullet_update(dt);
+            explode_update(dt);
+        }
     }
+    
     
 }
 
