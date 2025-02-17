@@ -53,6 +53,8 @@ static explode_t explode_all[EXPLODE_MAX];
 static sprite_t *spr_rock[3];
 static sprite_t *spr_bullet;
 static sprite_t *spr_ship;
+static sprite_t *spr_ship_life;
+
 static wav64_t *sfx_explode[3];
 static wav64_t *sfx_fire;
 static float game_time;
@@ -424,6 +426,7 @@ static void init(void)
     spr_rock[1] = sprite_load("rom:/rock_mid.sprite");
     spr_rock[2] = sprite_load("rom:/rock_small.sprite");
     spr_ship = sprite_load("rom:/ship.sprite");
+    spr_ship_life = sprite_load("rom:/ship_life.sprite");
     spr_bullet = sprite_load("rom:/bullet.sprite");
     sfx_explode[0] = wav64_load("rom:/explode_big.wav64", NULL);
     sfx_explode[1] = wav64_load("rom:/explode_mid.wav64", NULL);
@@ -459,8 +462,11 @@ static void draw(void)
             0, 0,
             "Pause");
         } else {
-            rdpq_text_printf(NULL, FONT_MAIN, 16, 22, "%d", game_score);
-            rdpq_text_printf(NULL, FONT_MAIN, 16, 32, "Lives %d", game_lives);
+            rdpq_text_printf(&(rdpq_textparms_t){.width=100, .height=14}, FONT_MAIN, 22, 16, "%d", game_score);
+            rdpq_set_mode_standard();
+            rdpq_mode_alphacompare(1); // colorkey (draw pixel with alpha >= 1)
+            rdpq_sprite_blit(spr_ship_life, 22, 30, NULL);
+            rdpq_text_printf(&(rdpq_textparms_t){.width=92, .height=14}, FONT_MAIN, 30, 30, "x%d", game_lives);
         }
     }
     
@@ -498,6 +504,7 @@ static void cleanup(void)
     sprite_free(spr_rock[1]);
     sprite_free(spr_rock[2]);
     sprite_free(spr_ship);
+    sprite_free(spr_ship_life);
     sprite_free(spr_bullet);
     wav64_close(sfx_explode[0]);
     wav64_close(sfx_explode[1]);
