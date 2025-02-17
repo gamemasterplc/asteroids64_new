@@ -386,6 +386,21 @@ static void player_draw(void)
     }
 }
 
+static void game_reset(void)
+{
+    game_time = 0;
+    game_pause = false;
+    explode_init();
+    rock_init();
+    bullet_init();
+    player_reset();
+    player.damage_timer = 0;
+    rock_start_create();
+    game_lives = 3;
+    game_score = 0;
+    game_over = false;
+}
+
 static void init(void)
 {
     game_font = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
@@ -400,19 +415,7 @@ static void init(void)
     sfx_explode[1] = wav64_load("rom:/explode_mid.wav64", NULL);
     sfx_explode[2] = wav64_load("rom:/explode_small.wav64", NULL);
     sfx_fire = wav64_load("rom:/fire.wav64", NULL);
-    game_time = 0;
-    game_pause = false;
-    
-    explode_init();
-    rock_init();
-    bullet_init();
-    
-    player_reset();
-    player.damage_timer = 0;
-    
-    rock_start_create();
-    game_lives = 3;
-    game_score = 0;
+    game_reset();
 }
 
 static void draw(void)
@@ -423,16 +426,24 @@ static void draw(void)
         bullet_draw();
         rock_draw();
         explode_draw();
-        rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=screen_h, .align=ALIGN_CENTER, .valign=VALIGN_CENTER}, FONT_MAIN, 0, 0, "Game Over");
+        rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=screen_h, .align=ALIGN_CENTER, .valign=VALIGN_CENTER},
+            FONT_MAIN,
+            0, 0,
+            "Game Over");
+        rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=40, .align=ALIGN_CENTER, .valign=VALIGN_BOTTOM},
+            FONT_MAIN,
+            0, screen_h-56,
+            "Press A to Reset\n" "Press B to Quit");
     } else {
         bullet_draw();
         player_draw();
         rock_draw();
         explode_draw();
-        
-        
         if(game_pause) {
-            rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=screen_h, .align=ALIGN_CENTER, .valign=VALIGN_CENTER}, FONT_MAIN, 0, 0, "Pause");
+            rdpq_text_print(&(rdpq_textparms_t){.width=screen_w, .height=screen_h, .align=ALIGN_CENTER, .valign=VALIGN_CENTER},
+            FONT_MAIN,
+            0, 0,
+            "Pause");
         } else {
             rdpq_text_printf(NULL, FONT_MAIN, 16, 22, "%d", game_score);
             rdpq_text_printf(NULL, FONT_MAIN, 16, 32, "Lives %d", game_lives);
@@ -448,6 +459,11 @@ static void update(float dt)
         rock_update(dt);
         bullet_update(dt);
         explode_update(dt);
+        if(btn_press.a) {
+            game_reset();
+        } else if(btn_press.b) {
+            scene_set_next(SCENE_title);
+        }
     } else {
         if(btn_press.start) {
             game_pause = !game_pause;
@@ -460,13 +476,21 @@ static void update(float dt)
             explode_update(dt);
         }
     }
-    
-    
 }
 
 static void cleanup(void)
 {
-    
+    sprite_free(spr_rock[0]);
+    sprite_free(spr_rock[1]);
+    sprite_free(spr_rock[2]);
+    sprite_free(spr_ship);
+    sprite_free(spr_bullet);
+    wav64_close(sfx_explode[0]);
+    wav64_close(sfx_explode[1]);
+    wav64_close(sfx_explode[2]);
+    wav64_close(sfx_fire);
+    rdpq_font_free(game_font);
+    rdpq_text_unregister_font(FONT_MAIN);
 }
 
 scene_data_t game_scene = { init, draw, update, cleanup };

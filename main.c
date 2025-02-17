@@ -25,7 +25,7 @@ int main()
     rdpq_init();
     rdpq_debug_start();
     
-    scene_set_next(SCENE_game);
+    scene_set_next(SCENE_title);
     while (1)
     {
         scene_init_call();

@@ -1,1 +1,2 @@
 DEFINE_SCENE(game)
+DEFINE_SCENE(title)

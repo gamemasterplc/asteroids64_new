@@ -1,7 +1,7 @@
 BUILD_DIR=build
 include $(N64_INST)/include/n64.mk
 
-src = main.c scene.c game.c
+src = main.c scene.c game.c title.c
 assets_xm = $(wildcard assets/*.xm)
 assets_wav = $(wildcard assets/*.wav)
 assets_png = $(wildcard assets/*.png)
