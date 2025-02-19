@@ -1,7 +1,7 @@
 #include "libdragon.h"
 #include "scene.h"
 
-#define ROCK_MAX 12
+#define ROCK_MAX 24
 #define BULLET_MAX 25
 #define EXPLODE_MAX ROCK_MAX+1
 
